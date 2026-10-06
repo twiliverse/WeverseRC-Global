@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weverse RC Global — 3D Micro-Frontend Ecosystem</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #07090e;
+      color: #ffffff;
+      user-select: none;
+    }
+    #webgl-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+    .glass {
+      background: rgba(18, 20, 29, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .weverse-gradient-text {
+      background: linear-gradient(135deg, #00d8a1, #a855f7, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 216, 161, 0.4); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- 3D CANVAS CONTAINER -->
+  <div id="webgl-container"></div>
+
+  <!-- UI OVERLAY LAYER -->
+  <div class="relative z-10 w-full h-screen pointer-events-none flex flex-col justify-between">
+    
+    <!-- TOP HEADER BAR -->
+    <header class="p-4 md:p-6 flex justify-between items-start w-full pointer-events-auto">
+      <div class="glass px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3.5 border-emerald-500/20">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#00d8a1] via-purple-600 to-blue-500 flex items-center justify-center font-extrabold text-white text-xl shadow-[0_0_20px_rgba(0,216,161,0.4)]">
+          W
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg tracking-tight flex items-center gap-2">
+            Weverse <span class="weverse-gradient-text font-black">RC Global</span>
+          </h1>
+          <p class="text-[10px] text-gray-400 font-mono tracking-wider uppercase flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#00d8a1] animate-ping"></span>
+            @weverse/module-regional-circles v2.4
+          </p>
+        </div>
+      </div>
+
+      <!-- LIVE MICRO-FRONTEND TELEMETRY -->
+      <div class="glass px-4 py-2.5 rounded-2xl hidden md:flex gap-5 items-center text-[10px] font-mono text-gray-400 border-white/10">
+        <div class="flex flex-col items-end"><span class="text-gray-500">FEDERATION MODULES</span><strong class="text-white text-xs">5 ACTIVE</strong></div>
+        <div class="h-6 w-px bg-white/10"></div>
+        <div class="flex flex-col items-end"><span class="text-gray-500">GLOBAL WS LATENCY</span><strong class="text-[#00d8a1] text-xs">&lt;15ms</strong></div>
+        <div class="h-6 w-px bg-white/10"></div>
+        <div class="flex flex-col items-end"><span class="text-gray-500">EDGE CACHE HIT</span><strong class="text-purple-400 text-xs">99.94%</strong></div>
+      </div>
+    </header>
+
+    <!-- DYNAMIC SIDE TELEMETRY PANEL -->
+    <main class="absolute left-4 md:left-6 top-28 bottom-28 w-80 md:w-84 pointer-events-auto flex flex-col transition-all duration-500" id="telemetry-panel">
+      <!-- Content Injected via JS -->
+    </main>
+
+    <!-- WEVERSE-STYLE GLASSMORPHISM BOTTOM NAVIGATION -->
+    <footer class="w-full p-4 pointer-events-auto flex justify-center pb-6 md:pb-8">
+      <div class="glass px-2 py-2 rounded-2xl flex items-center gap-1.5 shadow-2xl border-white/10">
+        
+        <button onclick="switchView('global')" id="btn-global" class="nav-btn active flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 text-white font-semibold text-xs md:text-sm transition-all hover:bg-white/20">
+          <i data-lucide="globe" class="w-4 h-4 text-[#00d8a1]"></i>
+          <span>Global Shell</span>
+        </button>
+
+        <button onclick="switchView('regional')" id="btn-regional" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-gray-400 font-semibold text-xs md:text-sm transition-all hover:bg-white/10 hover:text-white">
+          <i data-lucide="map-pin" class="w-4 h-4 text-purple-400"></i>
+          <span>Regional Network</span>
+        </button>
+
+        <button onclick="switchView('bridge')" id="btn-bridge" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-gray-400 font-semibold text-xs md:text-sm transition-all hover:bg-white/10 hover:text-white">
+          <i data-lucide="cpu" class="w-4 h-4 text-blue-400"></i>
+          <span>Module Bridge</span>
+        </button>
+
+        <button onclick="switchView('sync')" id="btn-sync" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-gray-400 font-semibold text-xs md:text-sm transition-all hover:bg-white/10 hover:text-white relative">
+          <i data-lucide="zap" class="w-4 h-4 text-rose-400"></i>
+          <span>QueueShield Sync</span>
+          <span class="absolute top-2 right-2 w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>
+        </button>
+
+      </div>
+    </footer>
+  </div>
+
+  <!-- 3D ENGINE & APPLICATION LOGIC -->
+  <script>
+    lucide.createIcons();
+
+    // --- 1. THREE.JS SCENE INITIALIZATION ---
+    const container = document.getElementById('webgl-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x07090e, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    // Camera View Targets
+    const camTargets = {
+      global:   { pos: new THREE.Vector3(0, 45, 80), look: new THREE.Vector3(0, 0, 0) },
+      regional: { pos: new THREE.Vector3(-35, 18, 30), look: new THREE.Vector3(-25, 5, 0) },
+      bridge:   { pos: new THREE.Vector3(0, 12, 28), look: new THREE.Vector3(0, 0, 0) },
+      sync:     { pos: new THREE.Vector3(35, 20, -25), look: new THREE.Vector3(22, 10, -15) }
+    };
+    
+    let currentCamPos = camTargets.global.pos.clone();
+    let currentLookAt = camTargets.global.look.clone();
+    camera.position.copy(currentCamPos);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 + 0.1;
+
+    // --- 2. ENVIRONMENT LIGHTING ---
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+    const coreLight = new THREE.PointLight(0x00d8a1, 3, 100);
+    coreLight.position.set(0, 0, 0);
+    scene.add(coreLight);
+
+    const accentLight1 = new THREE.PointLight(0xa855f7, 2, 80);
+    accentLight1.position.set(-30, 20, 20);
+    scene.add(accentLight1);
+
+    const accentLight2 = new THREE.PointLight(0x3b82f6, 2, 80);
+    accentLight2.position.set(30, -10, -20);
+    scene.add(accentLight2);
+
+    // --- 3. 3D ARCHITECTURE GEOMETRIES ---
+
+    // A. CENTRAL GLOBAL WEVERSE SHELL CORE
+    const globalGroup = new THREE.Group();
+    scene.add(globalGroup);
+
+    // Outer Geodesic Cage (Global App Shell)
+    const shellGeo = new THREE.IcosahedronGeometry(8, 2);
+    const shellMat = new THREE.MeshStandardMaterial({
+      color: 0x00d8a1, wireframe: true, transparent: true, opacity: 0.5, roughness: 0.1
+    });
+    const shellMesh = new THREE.Mesh(shellGeo, shellMat);
+    globalGroup.add(shellMesh);
+
+    // Inner Weverse ID Core
+    const innerCore = new THREE.Mesh(
+      new THREE.SphereGeometry(4.5, 32, 32),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x00d8a1, emissiveIntensity: 0.8 })
+    );
+    globalGroup.add(innerCore);
+
+    // B. ORBITING REGIONAL CIRCLE NODES (RCIndia, RCJapan, RCSEA, RCLATAM, RCEurope)
+    const regionalNodes = [
+      { name: 'RCIndia',   code: 'IN_MUMBAI', color: 0x00d8a1, pos: [-25, 6, 18] },
+      { name: 'RCJapan',   code: 'JP_TOKYO',  color: 0xf43f5e, pos: [22, 12, 18] },
+      { name: 'RCSEA',     code: 'SE_JAKARTA',color: 0xf59e0b, pos: [-20, -10, -20] },
+      { name: 'RCLATAM',   code: 'LA_SAOPAULO',color:0x06b6d4, pos: [25, -6, -18] },
+      { name: 'RCEurope',  code: 'EU_LONDON', color: 0x6366f1, pos: [0, 22, -25] }
+    ];
+
+    const nodesGroup = new THREE.Group();
+    scene.add(nodesGroup);
+    const bridgesGroup = new THREE.Group();
+    scene.add(bridgesGroup);
+
+    regionalNodes.forEach(node => {
+      const nodeGroup = new THREE.Group();
+      nodeGroup.position.set(...node.pos);
+
+      // Node Mesh (Octahedron)
+      const nMesh = new THREE.Mesh(
+        new THREE.OctahedronGeometry(3.5, 1),
+        new THREE.MeshStandardMaterial({ color: node.color, wireframe: true, emissive: node.color, emissiveIntensity: 0.3 })
+      );
+      const nCore = new THREE.Mesh(
+        new THREE.SphereGeometry(1.8, 16, 16),
+        new THREE.MeshBasicMaterial({ color: node.color })
+      );
+      nodeGroup.add(nMesh);
+      nodeGroup.add(nCore);
+      nodesGroup.add(nodeGroup);
+      node.group = nodeGroup;
+
+      // Module Federation Connecting Energy Beams
+      const curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(node.pos[0] * 0.5, 12, node.pos[2] * 0.5),
+        new THREE.Vector3(...node.pos)
