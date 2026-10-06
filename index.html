@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weverse RC Global — 3D Architecture</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Standalone Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #06080d;
+      color: #ffffff;
+      user-select: none;
+    }
+    #webgl-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+    .glass {
+      background: rgba(18, 20, 29, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .weverse-gradient-text {
+      background: linear-gradient(135deg, #00d8a1, #a855f7, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 216, 161, 0.4); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- 3D CANVAS -->
+  <div id="webgl-container"></div>
+
+  <!-- UI OVERLAY -->
+  <div class="relative z-10 w-full h-screen pointer-events-none flex flex-col justify-between">
+    
+    <!-- TOP HEADER -->
+    <header class="p-4 md:p-6 flex justify-between items-start w-full pointer-events-auto">
+      <div class="glass px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3.5 border-emerald-500/20">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#00d8a1] via-purple-600 to-blue-500 flex items-center justify-center font-extrabold text-white text-xl shadow-[0_0_20px_rgba(0,216,161,0.5)]">
+          W
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg tracking-tight flex items-center gap-2">
+            Weverse <span class="weverse-gradient-text font-black">RC Global</span>
+          </h1>
+          <p class="text-[10px] text-gray-400 font-mono tracking-wider uppercase flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#00d8a1] animate-ping"></span>
+            @weverse/module-regional-circles v2.4
+          </p>
+        </div>
+      </div>
+
+      <!-- LIVE TELEMETRY -->
+      <div class="glass px-4 py-2.5 rounded-2xl hidden md:flex gap-5 items-center text-[10px] font-mono text-gray-400 border-white/10">
+        <div class="flex flex-col items-end"><span class="text-gray-500">FEDERATION MODULES</span><strong class="text-white text-xs">5 ACTIVE</strong></div>
+        <div class="h-6 w-px bg-white/10"></div>
+        <div class="flex flex-col items-end"><span class="text-gray-500">GLOBAL WS LATENCY</span><strong class="text-[#00d8a1] text-xs">&lt;12ms</strong></div>
+        <div class="h-6 w-px bg-white/10"></div>
+        <div class="flex flex-col items-end"><span class="text-gray-500">EDGE CACHE HIT</span><strong class="text-purple-400 text-xs">99.94%</strong></div>
+      </div>
+    </header>
+
+    <!-- LEFT TELEMETRY PANEL -->
+    <main class="absolute left-4 md:left-6 top-28 w-80 md:w-84 pointer-events-auto flex flex-col transition-all duration-300" id="telemetry-panel">
+      <!-- Content populated by JS immediately -->
+    </main>
+
+    <!-- BOTTOM WEVERSE CONTROLS -->
+    <footer class="w-full p-4 pointer-events-auto flex justify-center pb-6 md:pb-8">
+      <div class="glass px-2 py-2 rounded-2xl flex items-center gap-1.5 shadow-2xl border-white/10">
+        
+        <button onclick="switchView('global')" id="btn-global" class="nav-btn active flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 text-white font-semibold text-xs md:text-sm transition-all hover:bg-white/20">
+          <span>🌐 Global Shell</span>
+        </button>
+
+        <button onclick="switchView('regional')" id="btn-regional" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-gray-400 font-semibold text-xs md:text-sm transition-all hover:bg-white/10 hover:text-white">
+          <span>📍 Regional Network</span>
+        </button>
+
+        <button onclick="switchView('bridge')" id="btn-bridge" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-gray-400 font-semibold text-xs md:text-sm transition-all hover:bg-white/10 hover:text-white">
+          <span>⚡ Module Bridge</span>
+        </button>
+
+        <button onclick="switchView('sync')" id="btn-sync" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-gray-400 font-semibold text-xs md:text-sm transition-all hover:bg-white/10 hover:text-white relative">
+          <span>🔥 QueueShield Sync</span>
+        </button>
+
+      </div>
+    </footer>
+  </div>
+
+  <!-- SCRIPT ENGINE -->
+  <script>
+    // --- 1. UI SIDE PANEL RENDERER (RUNS IMMEDIATELY) ---
+    const panel = document.getElementById('telemetry-panel');
+
+    const uiViews = {
+      global: `
+        <div class="glass p-5 rounded-2xl border-emerald-500/30">
+          <div class="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-3 border border-emerald-500/30 text-xl">🌐</div>
+          <h2 class="text-xl font-bold text-white mb-1">Global App Shell</h2>
+          <p class="text-[11px] text-gray-300 leading-relaxed mb-4">
+            Central Weverse Monorepo (<code class="text-[#00d8a1] font-mono">weverse-mono</code>). Handles global OAuth2 authentication, Weverse ID, and master media streaming pipelines.
+          </p>
+          <div class="space-y-2 font-mono text-[11px]">
+            <div class="flex justify-between border-b border-white/10 pb-1.5"><span class="text-gray-400">Auth Engine</span><span class="text-emerald-400">WEVERSE ID</span></div>
+            <div class="flex justify-between border-b border-white/10 pb-1.5"><span class="text-gray-400">Global Fans</span><span class="text-white">100M+ Active</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Module Router</span><span class="text-purple-400">Federated</span></div>
+          </div>
+        </div>
+      `,
+      regional: `
+        <div class="glass p-5 rounded-2xl border-purple-500/30">
+          <div class="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center mb-3 border border-purple-500/30 text-xl">📍</div>
+          <h2 class="text-xl font-bold text-white mb-1">Regional Circles</h2>
+          <p class="text-[11px] text-gray-300 leading-relaxed mb-4">
+            Geofenced micro-applications running on regional edge nodes (RCIndia, RCJapan, RCEurope).
+          </p>
+          <div class="space-y-2 mb-3">
+            <div class="bg-black/40 p-2 rounded-xl border border-emerald-500/30 flex justify-between items-center text-xs">
+              <span class="font-bold text-white">🇮🇳 RCIndia</span>
+              <span class="text-[10px] font-mono text-emerald-400">4 Active Circles</span>
+            </div>
+            <div class="bg-black/40 p-2 rounded-xl border border-rose-500/30 flex justify-between items-center text-xs">
+              <span class="font-bold text-white">🇯🇵 RCJapan</span>
+              <span class="text-[10px] font-mono text-rose-400">Tokyo Hub</span>
+            </div>
+          </div>
+        </div>
+      `,
+      bridge: `
+        <div class="glass p-5 rounded-2xl border-blue-500/30">
+          <div class="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center mb-3 border border-blue-500/30 text-xl">⚡</div>
+          <h2 class="text-xl font-bold text-white mb-1">Module Federation</h2>
+          <p class="text-[11px] text-gray-300 leading-relaxed mb-4">
+            Dynamic runtime loading via Turbopack. Regional modules load lazily with zero overhead on the global app bundle.
+          </p>
+          <div class="bg-black/60 p-3 rounded-xl border border-white/10 font-mono text-[10px] text-blue-300">
+            <div>import { CircleOverlay }</div>
+            <div class="pl-2">from <span class="text-emerald-400">'@weverse/module-rc'</span>;</div>
+            <div class="text-gray-500 mt-2">// Bundle Impact: &lt;42kB</div>
+          </div>
+        </div>
+      `,
+      sync: `
+        <div class="glass p-5 rounded-2xl border-rose-500/30">
+          <div class="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center mb-3 border border-rose-500/30 text-xl">🔥</div>
+          <h2 class="text-xl font-bold text-white mb-1">QueueShield Sync</h2>
+          <p class="text-[11px] text-gray-300 leading-relaxed mb-4">
+            High-throughput Redis Pub/Sub WebSocket cluster. Isolates peak comeback traffic to edge nodes with NTP clock drift correction.
+          </p>
+          <div class="bg-black/60 p-3 rounded-xl border border-rose-500/30 font-mono text-[11px] space-y-1">
+            <div class="flex justify-between"><span class="text-gray-400">Edge Latency:</span><span class="text-emerald-400 font-bold">12ms</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">NTP Drift:</span><span class="text-white">±1.8ms</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Capacity:</span><span class="text-rose-400 font-bold">100k msg/sec</span></div>
+          </div>
+        </div>
+      `
+    };
+
+    panel.innerHTML = uiViews.global;
+
+    // --- 2. THREE.JS 3D SCENE SETUP ---
+    const container = document.getElementById('webgl-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x06080d, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    // Camera View Targets
+    const camTargets = {
+      global:   { pos: new THREE.Vector3(0, 35, 75), look: new THREE.Vector3(0, 0, 0) },
+      regional: { pos: new THREE.Vector3(-30, 15, 25), look: new THREE.Vector3(-20, 5, 0) },
+      bridge:   { pos: new THREE.Vector3(0, 10, 25), look: new THREE.Vector3(0, 0, 0) },
+      sync:     { pos: new THREE.Vector3(30, 18, -20), look: new THREE.Vector3(20, 8, -10) }
+    };
+    
+    let currentCamPos = camTargets.global.pos.clone();
+    let currentLookAt = camTargets.global.look.clone();
+    camera.position.copy(currentCamPos);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    // --- Native Mouse Drag Rotation Controls (No external OrbitControls required!) ---
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    window.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      previousMousePosition = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const deltaX = e.clientX - previousMousePosition.x;
+      const deltaY = e.clientY - previousMousePosition.y;
+
+      // Orbit camera manually around focal point
+      const radius = currentCamPos.distanceTo(currentLookAt);
+      let theta = Math.atan2(currentCamPos.x - currentLookAt.x, currentCamPos.z - currentLookAt.z);
+      let phi = Math.acos(Math.max(-1, Math.min(1, (currentCamPos.y - currentLookAt.y) / radius)));
+
+      theta -= deltaX * 0.005;
+      phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, phi - deltaY * 0.005));
+
+      currentCamPos.x = currentLookAt.x + radius * Math.sin(phi) * Math.sin(theta);
+      currentCamPos.y = currentLookAt.y + radius * Math.cos(phi);
+      currentCamPos.z = currentLookAt.z + radius * Math.sin(phi) * Math.cos(theta);
+
+      previousMousePosition = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('pointerup', () => { isDragging = false; });
+
+    // --- 3. LIGHTS ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const coreLight = new THREE.PointLight(0x00d8a1, 3, 100);
+    scene.add(coreLight);
+
+    const purpleLight = new THREE.PointLight(0xa855f7, 2, 80);
+    purpleLight.position.set(-25, 20, 20);
+    scene.add(purpleLight);
+
+    const roseLight = new THREE.PointLight(0xf43f5e, 2, 80);
+    roseLight.position.set(25, 10, -20);
+    scene.add(roseLight);
+
+    // --- 4. 3D SCENE OBJECTS ---
+
+    // Global Core
+    const coreGroup = new THREE.Group();
+    scene.add(coreGroup);
+
+    const shellGeo = new THREE.IcosahedronGeometry(8, 2);
+    const shellMat = new THREE.MeshStandardMaterial({
+      color: 0x00d8a1, wireframe: true, emissive: 0x00d8a1, emissiveIntensity: 0.3
+    });
+    const shellMesh = new THREE.Mesh(shellGeo, shellMat);
+    coreGroup.add(shellMesh);
+
+    const innerCore = new THREE.Mesh(
+      new THREE.SphereGeometry(4, 32, 32),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x00d8a1, emissiveIntensity: 0.8 })
+    );
+    coreGroup.add(innerCore);
+
+    // Regional Orbiting Nodes
+    const regionalNodes = [
+      { name: 'RCIndia',  color: 0x00d8a1, pos: [-22, 6, 16] },
+      { name: 'RCJapan',  color: 0xf43f5e, pos: [20, 10, 16] },
+      { name: 'RCSEA',    color: 0xf59e0b, pos: [-18, -8, -18] },
+      { name: 'RCEurope', color: 0x6366f1, pos: [0, 20, -22] }
+    ];
+
+    const nodesGroup = new THREE.Group();
+    scene.add(nodesGroup);
+
+    regionalNodes.forEach(node => {
+      const nGroup = new THREE.Group();
+      nGroup.position.set(...node.pos);
+
+      const mesh = new THREE.Mesh(
+        new THREE.OctahedronGeometry(3.5, 1),
+        new THREE.MeshStandardMaterial({ color: node.color, wireframe: true, emissive: node.color, emissiveIntensity: 0.5 })
+      );
+      const core = new THREE.Mesh(
+        new THREE.SphereGeometry(1.8, 16, 16),
+        new THREE.MeshBasicMaterial({ color: node.color })
+      );
+      nGroup.add(mesh);
+      nGroup.add(core);
+      nodesGroup.add(nGroup);
+      node.group = nGroup;
+
+      // Connection Tubes
+      const curve = new THREE.LineCurve3(new THREE.Vector3(0,0,0), new THREE.Vector3(...node.pos));
+      const tubeGeo = new THREE.TubeGeometry(curve, 10, 0.1, 8, false);
+      const tubeMat = new THREE.MeshBasicMaterial({ color: node.color, transparent: true, opacity: 0.4 });
+      scene.add(new THREE.Mesh(tubeGeo, tubeMat));
+    });
+
+    // QueueShield Particle Storm
+    const syncGroup = new THREE.Group();
+    syncGroup.position.set(20, 10, 16);
+    scene.add(syncGroup);
+
+    const syncCount = 3000;
+    const syncGeo = new THREE.BufferGeometry();
+    const syncPos = new Float32Array(syncCount * 3);
+    for(let i=0; i<syncCount*3; i+=3) {
+      const radius = 5 + Math.random() * 12;
+      const theta = Math.random() * Math.PI * 2;
+      syncPos[i] = Math.cos(theta) * radius;
+      syncPos[i+1] = (Math.random() - 0.5) * 6;
+      syncPos[i+2] = Math.sin(theta) * radius;
+    }
+    syncGeo.setAttribute('position', new THREE.BufferAttribute(syncPos, 3));
+    const syncMat = new THREE.PointsMaterial({ size: 0.25, color: 0xf43f5e, blending: THREE.AdditiveBlending });
+    const syncStorm = new THREE.Points(syncGeo, syncMat);
+    syncGroup.add(syncStorm);
+
+    // Floor Grid
+    const grid = new THREE.GridHelper(200, 80, 0x00d8a1, 0x1e293b);
+    grid.position.y = -20;
+    scene.add(grid);
+
+    // --- 5. ANIMATION LOOP ---
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const time = clock.getElapsedTime();
+
+      // Rotate Global Core
+      shellMesh.rotation.y = time * 0.2;
+      shellMesh.rotation.x = time * 0.1;
+
+      // Float Regional Nodes
+      regionalNodes.forEach((node, idx) => {
+        node.group.rotation.y = -time * 0.5;
+        node.group.position.y = node.pos[1] + Math.sin(time * 2 + idx) * 1.2;
+      });
+
+      // Rotate Particle Accelerator
+      syncStorm.rotation.y = time * 1.2;
+
+      // Smooth Camera Lerp
+      camera.position.lerp(currentCamPos, 0.05);
+      camera.lookAt(currentLookAt);
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // --- 6. SWITCH VIEW FUNCTION ---
+    window.switchView = function(view) {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('bg-white/10', 'text-white', 'active');
+        btn.classList.add('text-gray-400');
+      });
+      const activeBtn = document.getElementById(`btn-${view}`);
+      activeBtn.classList.add('bg-white/10', 'text-white', 'active');
+      activeBtn.classList.remove('text-gray-400');
+
+      panel.style.opacity = 0;
+      setTimeout(() => {
+        panel.innerHTML = uiViews[view];
+        panel.style.opacity = 1;
+      }, 150);
+
+      currentCamPos = camTargets[view].pos.clone();
+      currentLookAt = camTargets[view].look.clone();
+    };
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
